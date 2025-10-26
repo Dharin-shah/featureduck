@@ -1,0 +1,89 @@
+# FeatureDuck Workspace Configuration
+# 
+# This is the root workspace file that manages all Rust crates in the project.
+# A workspace allows us to share dependencies and build artifacts across multiple crates.
+#
+# Structure:
+# - featureduck-core: Core types and traits (storage connector interface)
+# - featureduck-server: Main HTTP server binary
+# - featureduck-delta: Delta Lake storage connector implementation
+
+[workspace]
+members = [
+    "crates/featureduck-core",
+    "crates/featureduck-server",
+    "crates/featureduck-delta",
+]
+
+# Enforce consistent dependency versions across all workspace members
+# This prevents version conflicts and reduces compilation time
+resolver = "2"
+
+# Shared workspace-level metadata
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["FeatureDuck Contributors"]
+license = "Apache-2.0"
+repository = "https://github.com/featureduck/featureduck"
+
+# Shared dependencies with consistent versions across all crates
+# Using workspace dependencies reduces duplication and ensures compatibility
+[workspace.dependencies]
+# Async runtime - powers all async operations
+tokio = { version = "1.35", features = ["full"] }
+
+# Web framework - handles HTTP requests
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace", "cors"] }
+
+# Database - core query engine
+duckdb = { version = "0.10", features = ["bundled"] }
+
+# Lakehouse formats (will be fully enabled in Milestone 1 with proper testing)
+# deltalake = { version = "0.17", features = ["s3", "gcs"] }
+# object_store = "0.9"
+
+# Pin arrow and chrono to avoid conflicts
+arrow = "=50.0.0"
+arrow-schema = "=50.0.0"
+chrono = { version = "=0.4.31", features = ["serde"] }
+
+# Serialization - JSON for API requests/responses
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling - makes error management ergonomic
+anyhow = "1.0"      # Application-level errors
+thiserror = "1.0"   # Library-level errors
+
+# Logging and tracing - observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+
+# Configuration
+config = "0.14"
+
+# Testing
+tokio-test = "0.4"
+
+# Profile configurations for different build scenarios
+[profile.dev]
+# Fast compilation during development, even at cost of runtime performance
+opt-level = 0
+debug = true
+
+[profile.release]
+# Maximum performance for production builds
+opt-level = 3           # Maximum optimization
+lto = true              # Link-time optimization (slower build, faster binary)
+codegen-units = 1       # Better optimization at cost of compile time
+strip = true            # Remove debug symbols (smaller binary)
+panic = "abort"         # Smaller binary, faster panic handling
+
+[profile.bench]
+# Benchmark profile - similar to release but with debug info
+inherits = "release"
+debug = true

@@ -1,0 +1,35 @@
+# FeatureDuck Delta Lake Connector
+#
+# This crate implements the StorageConnector trait for Delta Lake.
+# It uses the delta-rs library (Rust-native Delta Lake implementation).
+#
+# This will be implemented in Milestone 1 using TDD.
+
+[package]
+name = "featureduck-delta"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Internal dependencies
+featureduck-core = { path = "../featureduck-core" }
+
+# Delta Lake (Rust native) - will be enabled in Milestone 1
+# deltalake = { workspace = true }
+# object_store = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# For async trait implementations
+async-trait = "0.1"

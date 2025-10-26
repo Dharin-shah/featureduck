@@ -1,0 +1,66 @@
+# FeatureDuck Server Binary
+#
+# This is the main HTTP server that exposes the feature serving API.
+# It's built with Axum (modern Rust web framework) and uses DuckDB for queries.
+#
+# Key responsibilities:
+# - HTTP API endpoints (online features, historical features)
+# - Request validation and error handling
+# - Connection pooling for DuckDB
+# - Metrics and observability
+
+[package]
+name = "featureduck-server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# This is a binary crate (produces an executable)
+[[bin]]
+name = "featureduck"
+path = "src/main.rs"
+
+[dependencies]
+# Internal dependencies
+featureduck-core = { path = "../featureduck-core" }
+
+# Web framework
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Database
+duckdb = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging and tracing
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Configuration
+config = { workspace = true }
+serde_yaml = "0.9"
+
+# CLI argument parsing
+clap = { version = "4.4", features = ["derive"] }
+
+[dev-dependencies]
+# Testing
+tokio-test = { workspace = true }
+# HTTP client for testing
+reqwest = "0.11"

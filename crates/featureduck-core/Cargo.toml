@@ -1,0 +1,36 @@
+# FeatureDuck Core Library
+#
+# This crate contains the core types, traits, and interfaces used throughout
+# the FeatureDuck system. It has minimal dependencies and is designed to be
+# the foundation that other crates build upon.
+#
+# Key exports:
+# - StorageConnector trait: Interface that all storage backends must implement
+# - Core data types: EntityKey, FeatureValue, DataFrame
+# - Error types: FeatureStoreError
+
+[package]
+name = "featureduck-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Async runtime - required for async trait methods
+tokio = { workspace = true }
+
+# Serialization - for JSON API compatibility
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling - library uses thiserror for custom error types
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Time handling - for point-in-time queries
+chrono = { workspace = true }
+
+# For async trait definitions (Rust doesn't have native async traits yet)
+async-trait = "0.1"
