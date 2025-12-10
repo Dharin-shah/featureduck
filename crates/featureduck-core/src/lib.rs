@@ -54,7 +54,6 @@ pub mod online_store;
 pub mod resource_limits;
 pub mod retry;
 pub mod state;
-pub mod storage;
 pub mod time_window;
 mod types;
 pub mod validation;
