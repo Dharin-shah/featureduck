@@ -24,13 +24,13 @@ pub type Result<T> = std::result::Result<T, AppError>;
 pub enum AppError {
     /// Feature view not found (404)
     NotFound(String),
-    
+
     /// Invalid request (400)
     BadRequest(String),
-    
+
     /// Internal server error (500)
     Internal(String),
-    
+
     /// Error from core library
     Core(featureduck_core::Error),
 }
@@ -111,7 +111,7 @@ struct ErrorResponse {
 struct ErrorDetail {
     /// Machine-readable error code (e.g., "NOT_FOUND")
     code: String,
-    
+
     /// Human-readable error message
     message: String,
 }

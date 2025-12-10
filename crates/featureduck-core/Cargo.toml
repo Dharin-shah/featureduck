@@ -34,3 +34,35 @@ chrono = { workspace = true }
 
 # For async trait definitions (Rust doesn't have native async traits yet)
 async-trait = "0.1"
+
+# SQLite - production-grade state storage (OLTP optimized, 10-100x faster than DuckDB for state)
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# ZSTD compression - for efficient state storage (3-10x compression ratio)
+zstd = "0.13"
+
+# Binary serialization - MessagePack for state storage
+# MessagePack chosen over bincode because it supports serde(untagged) enums
+# 3-5x faster than JSON, ~30-40% smaller, supports all serde features
+rmp-serde = "1.1"
+
+# Logging - for observability
+tracing = "0.1"
+
+# LRU cache - for query plan caching
+lru = "0.12"
+
+# Random number generation - for retry jitter
+rand = "0.8"
+
+# SipHash - fast, cryptographically strong hash for HyperLogLog
+siphasher = "1.0"
+
+# Base64 encoding - for HyperLogLog state serialization
+base64 = "0.22"
+
+# Temporary file utilities - for state management
+tempfile = { workspace = true }
+
+[dev-dependencies]
+# Testing dependencies (none needed currently)

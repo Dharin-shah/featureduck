@@ -1,0 +1,290 @@
+# FeatureDuck Kubernetes CronJob Template
+#
+# This template schedules feature materialization jobs on Kubernetes.
+# Customize for your feature views and schedule requirements.
+#
+# Usage:
+#   kubectl apply -f cronjob.yaml
+#
+# Verify:
+#   kubectl get cronjobs
+#   kubectl get jobs
+#   kubectl logs job/<job-name>
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: featureduck-config
+  namespace: featureduck
+  labels:
+    app: featureduck
+data:
+  config.yaml: |
+    registry:
+      path: /data/registry/registry.db
+    storage:
+      base_path: /data/features
+      compression: zstd
+    materialization:
+      parallelism: 4
+      batch_size: 10000
+      retries: 3
+      timeout_seconds: 3600
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: featureduck-registry-pvc
+  namespace: featureduck
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: featureduck-features-pvc
+  namespace: featureduck
+spec:
+  accessModes:
+    - ReadWriteMany  # Needed for concurrent jobs
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: standard
+
+---
+# Example: Hourly materialization for user_features
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: featureduck-user-features-hourly
+  namespace: featureduck
+  labels:
+    app: featureduck
+    feature-view: user-features
+    schedule: hourly
+spec:
+  schedule: "0 * * * *"  # Every hour
+  concurrencyPolicy: Forbid  # Don't run concurrent jobs
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600  # 1 hour timeout
+      template:
+        metadata:
+          labels:
+            app: featureduck
+            feature-view: user-features
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: featureduck
+              image: featureduck/cli:latest
+              imagePullPolicy: Always
+              command:
+                - featureduck
+                - materialize
+                - --name=user_features
+                - --start=-1h
+                - --end=now
+              env:
+                - name: FEATUREDUCK_CONFIG
+                  value: /config/config.yaml
+                - name: RUST_LOG
+                  value: info,featureduck=debug
+                - name: AWS_REGION
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: region
+                      optional: true
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: access_key_id
+                      optional: true
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-credentials
+                      key: secret_access_key
+                      optional: true
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                - name: registry
+                  mountPath: /data/registry
+                - name: features
+                  mountPath: /data/features
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "500m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "2000m"
+          volumes:
+            - name: config
+              configMap:
+                name: featureduck-config
+            - name: registry
+              persistentVolumeClaim:
+                claimName: featureduck-registry-pvc
+            - name: features
+              persistentVolumeClaim:
+                claimName: featureduck-features-pvc
+
+---
+# Example: Daily materialization for purchase_features
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: featureduck-purchase-features-daily
+  namespace: featureduck
+  labels:
+    app: featureduck
+    feature-view: purchase-features
+    schedule: daily
+spec:
+  schedule: "0 2 * * *"  # 2 AM daily
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 7
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 7200  # 2 hours timeout
+      template:
+        metadata:
+          labels:
+            app: featureduck
+            feature-view: purchase-features
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: featureduck
+              image: featureduck/cli:latest
+              command:
+                - featureduck
+                - materialize
+                - --name=purchase_features
+                - --start=-24h
+                - --end=now
+              env:
+                - name: FEATUREDUCK_CONFIG
+                  value: /config/config.yaml
+                - name: RUST_LOG
+                  value: info
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                - name: registry
+                  mountPath: /data/registry
+                - name: features
+                  mountPath: /data/features
+              resources:
+                requests:
+                  memory: "1Gi"
+                  cpu: "1000m"
+                limits:
+                  memory: "4Gi"
+                  cpu: "4000m"
+          volumes:
+            - name: config
+              configMap:
+                name: featureduck-config
+            - name: registry
+              persistentVolumeClaim:
+                claimName: featureduck-registry-pvc
+            - name: features
+              persistentVolumeClaim:
+                claimName: featureduck-features-pvc
+
+---
+# Example: Weekly backfill job (manual trigger or scheduled)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: featureduck-weekly-backfill
+  namespace: featureduck
+  labels:
+    app: featureduck
+    schedule: weekly
+spec:
+  schedule: "0 3 * * 0"  # 3 AM on Sundays
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 4
+  failedJobsHistoryLimit: 4
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 21600  # 6 hours timeout
+      template:
+        metadata:
+          labels:
+            app: featureduck
+            job-type: backfill
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: featureduck
+              image: featureduck/cli:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Calculate date range (last 7 days)
+                  END_DATE=$(date +%Y-%m-%d)
+                  START_DATE=$(date -d '7 days ago' +%Y-%m-%d)
+
+                  echo "Backfilling from $START_DATE to $END_DATE"
+
+                  # Backfill all feature views
+                  for view in user_features purchase_features session_features; do
+                    echo "Backfilling $view..."
+                    featureduck backfill \
+                      --name=$view \
+                      --start-date=$START_DATE \
+                      --end-date=$END_DATE \
+                      --parallelism=8
+                  done
+              env:
+                - name: FEATUREDUCK_CONFIG
+                  value: /config/config.yaml
+                - name: RUST_LOG
+                  value: info
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                - name: registry
+                  mountPath: /data/registry
+                - name: features
+                  mountPath: /data/features
+              resources:
+                requests:
+                  memory: "2Gi"
+                  cpu: "2000m"
+                limits:
+                  memory: "8Gi"
+                  cpu: "8000m"
+          volumes:
+            - name: config
+              configMap:
+                name: featureduck-config
+            - name: registry
+              persistentVolumeClaim:
+                claimName: featureduck-registry-pvc
+            - name: features
+              persistentVolumeClaim:
+                claimName: featureduck-features-pvc

@@ -37,12 +37,12 @@ pub struct Config {
     #[serde(default)]
     #[allow(dead_code)] // Will be used in future milestones
     pub server: ServerConfig,
-    
+
     /// Storage configuration (for Milestone 1+)
     #[serde(default)]
     #[allow(dead_code)] // Will be used in Milestone 1
     pub storage: Option<StorageConfig>,
-    
+
     /// DuckDB configuration (for Milestone 1+)
     #[serde(default)]
     #[allow(dead_code)] // Will be used in Milestone 1
@@ -56,7 +56,7 @@ pub struct ServerConfig {
     #[serde(default = "default_host")]
     #[allow(dead_code)] // Will be used in future milestones
     pub host: String,
-    
+
     /// Port to listen on (default: 8000)
     #[serde(default = "default_port")]
     #[allow(dead_code)] // Will be used in future milestones
@@ -72,11 +72,11 @@ pub struct StorageConfig {
     #[serde(rename = "type")]
     #[allow(dead_code)] // Will be used in Milestone 1
     pub storage_type: String,
-    
+
     /// Path to storage (e.g., "s3://bucket/features")
     #[allow(dead_code)] // Will be used in Milestone 1
     pub path: String,
-    
+
     /// Additional options (credentials, etc.)
     #[serde(default)]
     #[allow(dead_code)] // Will be used in Milestone 1
@@ -92,7 +92,7 @@ pub struct DuckDBConfig {
     #[serde(default = "default_memory_limit")]
     #[allow(dead_code)] // Will be used in Milestone 1
     pub memory_limit: String,
-    
+
     /// Number of threads
     #[serde(default = "default_threads")]
     #[allow(dead_code)] // Will be used in Milestone 1
@@ -190,7 +190,7 @@ mod tests {
             storage: None,
             duckdb: None,
         };
-        
+
         assert_eq!(config.server.host, "0.0.0.0");
         assert_eq!(config.server.port, 8000);
     }
@@ -214,15 +214,18 @@ duckdb:
 "#;
 
         let config: Config = serde_yaml::from_str(yaml).unwrap();
-        
+
         assert_eq!(config.server.host, "127.0.0.1");
         assert_eq!(config.server.port, 9000);
-        
+
         let storage = config.storage.unwrap();
         assert_eq!(storage.storage_type, "delta");
         assert_eq!(storage.path, "s3://test-bucket/features");
-        assert_eq!(storage.options.get("aws_region"), Some(&"us-west-2".to_string()));
-        
+        assert_eq!(
+            storage.options.get("aws_region"),
+            Some(&"us-west-2".to_string())
+        );
+
         let duckdb = config.duckdb.unwrap();
         assert_eq!(duckdb.memory_limit, "4GB");
         assert_eq!(duckdb.threads, 8);
@@ -233,7 +236,7 @@ duckdb:
         // Should return default config without error
         let result = load("nonexistent_file.yaml");
         assert!(result.is_ok());
-        
+
         let config = result.unwrap();
         assert_eq!(config.server.port, 8000);
     }

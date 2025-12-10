@@ -1,0 +1,25 @@
+[package]
+name = "featureduck-py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "featureduck_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+# PyO3 0.20 supports Python 3.7-3.12
+# Upgrade to 0.22+ in M4 for Python 3.13 support (requires API migration)
+pyo3 = { version = "0.20", features = ["extension-module", "abi3-py38"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+duckdb = { workspace = true }
+arrow = { workspace = true }
+
+featureduck-core = { path = "../featureduck-core" }
+featureduck-delta = { path = "../featureduck-delta" }

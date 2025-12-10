@@ -61,3 +61,8 @@ config.yaml
 # Documentation build
 docs/_build/
 site/
+
+# Local development
+.venv-test/
+.featureduck/
+debug_*.py

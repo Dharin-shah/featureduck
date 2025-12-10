@@ -1,154 +1,84 @@
-# FeatureDuck 🦆
+# FeatureDuck
 
-**Universal Feature Store powered by DuckDB**
+High-performance feature store for ML and LLM applications. Built in Rust, accessible via Python.
 
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
+## Features
 
-> **Status:** Milestone 0 - Foundation ✅
+- **Fast**: 45K+ rows/sec writes, <10ms reads via Redis/Postgres online stores
+- **Reliable**: Circuit breakers, retry with backoff, self-healing OOM recovery
+- **Flexible**: Delta Lake storage, Redis/Postgres online serving
+- **Simple**: Decorator-based API, SQLFrame-compatible, single binary deployment
 
-FeatureDuck is a simple, cost-effective feature store that leverages DuckDB for compute and supports any lakehouse backend. Built with Rust for performance and Python for accessibility.
-
-## 🎯 Goals
-
-- **10-50x cheaper** than commercial alternatives ($7K-40K vs $100K-380K annually)
-- **Sub-10ms latency** for online feature serving
-- **Universal lakehouse support** (Delta Lake, Iceberg, Hudi, DuckDB native)
-- **Perfect online/offline parity** (single source of truth)
-- **30-minute deployment** (one command: `helm install`)
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────┐
-│   Rust Server (Axum + DuckDB)  │  ← Fast, efficient, single binary
-└────────────────┬────────────────┘
-                 │
-┌────────────────▼────────────────┐
-│   Any Lakehouse Format          │  ← Delta Lake, Iceberg, Hudi
-│   (S3/GCS/Azure/Local)          │
-└─────────────────────────────────┘
-```
-
-**Key Principles:**
-- **KISS:** Keep It Simple, Stupid
-- **TDD:** Test-Driven Development
-- **Single Source of Truth:** Lakehouse-only storage (no separate online store)
-- **Well-Commented:** Every non-obvious line explained
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Rust 1.75+ ([install](https://rustup.rs))
-- Python 3.10+ (for SDK)
-
-### Build & Run
+## Quick Start
 
 ```bash
-# Clone repository
-git clone https://github.com/featureduck/featureduck
-cd featureduck
-
-# Build server
+# Build
 cargo build --release
 
-# Run server (Milestone 0: mock data)
-cargo run --bin featureduck serve
+# Run tests
+cargo test --workspace --lib
 
-# Server starts on http://localhost:8000
+# Python SDK
+pip install -e python/
 ```
 
-### Test the API
+## Usage
+
+### Decorator API
+
+```python
+from featureduck import feature_view, Entity, DeltaSource
+from featureduck import col, count, sum_, days_ago
+
+user = Entity(name="user", join_keys=["user_id"])
+events = DeltaSource(name="events", path="s3://bucket/events")
+
+@feature_view(name="user_features", source=events, entities=[user])
+def compute(df):
+    return (
+        df.filter(col("timestamp") >= days_ago(7))
+          .group_by("user_id")
+          .agg(count().alias("purchases_7d"), sum_("amount").alias("total_spent"))
+    )
+```
+
+### SQLFrame API
+
+```python
+from featureduck import FeatureView, F
+
+view = FeatureView(name="user_features", entities=["user_id"], engine="duckdb")
+df = view.read_source({"type": "parquet", "path": "s3://bucket/events"})
+features = df.groupBy("user_id").agg(F.count("*").alias("event_count"))
+view.materialize(features, output_path="s3://bucket/features")
+```
+
+## Architecture
+
+```
+crates/
+├── featureduck-core/     # Core types, traits, validation
+├── featureduck-delta/    # Delta Lake storage connector
+├── featureduck-online/   # Redis + Postgres online stores
+├── featureduck-registry/ # Feature registry (SQLite/Postgres)
+├── featureduck-server/   # HTTP API server
+├── featureduck-cli/      # Command line tool
+└── featureduck-py/       # PyO3 Python bindings
+
+python/
+└── featureduck/          # Python SDK
+```
+
+## Tests
 
 ```bash
-# Health check
-curl http://localhost:8000/health
+# All lib tests (245 passing)
+cargo test --workspace --lib --quiet
 
-# Get online features (mock data in Milestone 0)
-curl -X POST http://localhost:8000/v1/features/online \
-  -H "Content-Type: application/json" \
-  -d '{
-    "feature_view": "user_features",
-    "entities": [{"user_id": "123"}]
-  }'
+# Stress tests
+cargo test -p featureduck-delta --test stress_test_optimizations --release
 ```
 
-## 📊 Current Status: Milestone 0
+## License
 
-**Milestone 0: Foundation** ✅
-- [x] Rust workspace with 3 crates (core, server, delta)
-- [x] Core types (EntityKey, FeatureView, FeatureRow)
-- [x] StorageConnector trait (interface for lakehouse backends)
-- [x] HTTP API with Axum (health check, mock endpoints)
-- [x] Error handling and logging
-- [x] Comprehensive comments for Rust beginners
-- [x] Tests for all modules
-
-**Next:** Milestone 1 - Delta Lake Connector (TDD)
-
-## 🗺️ Roadmap
-
-| Milestone | Goal | Status |
-|-----------|------|--------|
-| **M0** | Foundation | ✅ Complete |
-| **M1** | Delta Lake connector + DuckDB integration | 🔨 In Progress |
-| **M2** | Feature serving (online + historical) | ⏳ Planned |
-| **M3** | REST API + Python SDK | ⏳ Planned |
-| **M4** | Docker + CLI | ⏳ Planned |
-| **M5** | Performance optimization (< 10ms P99) | ⏳ Planned |
-| **M6** | Universal lakehouse (Iceberg, Hudi) | ⏳ Planned |
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-cargo test
-
-# Run with coverage
-cargo install cargo-tarpaulin
-cargo tarpaulin --out Html
-
-# Run specific crate tests
-cargo test -p featureduck-core
-cargo test -p featureduck-server
-```
-
-## 📚 Documentation
-
-- [Architecture Principles](ARCHITECTURE_PRINCIPLES.md) - Core design decisions
-- [Tech Stack](TECH_STACK.md) - Why Rust + Python
-- [Feature Store Components](FEATURE_STORE_COMPONENTS.md) - Complete breakdown
-- [Competitive Analysis](COMPETITIVE_ANALYSIS.md) - vs Tecton, Feast, etc.
-- [Caching Strategy](CACHING_STRATEGY.md) - Why no Redis
-
-## 🤝 Contributing
-
-We follow strict TDD and code quality practices:
-
-1. **Write tests first** (Red → Green → Refactor)
-2. **Comment extensively** (assume reader is Rust beginner)
-3. **Keep it simple** (KISS principle, YAGNI)
-4. **Run checks:**
-   ```bash
-   cargo clippy -- -D warnings
-   cargo fmt --check
-   cargo test
-   ```
-
-## 📝 License
-
-Apache 2.0 - See [LICENSE](LICENSE) for details.
-
-## 🙏 Acknowledgments
-
-Inspired by:
-- **Tecton:** Declarative feature definitions
-- **Feast:** Open-source community approach
-- **DuckDB:** Incredible in-process query engine
-
-Built with ❤️ to make feature stores accessible to everyone.
-
----
-
-**Status:** Milestone 0 Complete | **Next:** Implement Delta Lake connector with TDD
+Apache 2.0

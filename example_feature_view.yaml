@@ -1,0 +1,29 @@
+name: user_purchase_features
+version: 1
+source_type: delta
+source_path: /tmp/featureduck-test/events
+entities:
+  - user_id
+transformations: |
+  {
+    "source": {"Delta": {"path": "/tmp/featureduck-test/events"}},
+    "filters": [],
+    "group_by": ["user_id"],
+    "aggregations": [
+      {"function": "CountAll", "alias": "total_purchases"}
+    ],
+    "projections": [],
+    "joins": [],
+    "order_by": [],
+    "limit": null
+  }
+timestamp_field: timestamp
+ttl_days: 30
+batch_schedule: "0 0 * * *"
+description: User purchase aggregation features
+tags:
+  - user
+  - purchase
+owner: data-team
+created_at: 1730246400
+updated_at: 1730246400

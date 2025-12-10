@@ -134,7 +134,11 @@ pub trait StorageConnector: Send + Sync {
     ///     println!("Found feature view: {}", view.name);
     /// }
     /// ```
-    async fn list_feature_views(&self) -> Result<Vec<FeatureView>>;
+    async fn list_feature_views(&self) -> Result<Vec<FeatureView>> {
+        Err(crate::Error::StorageError(anyhow::anyhow!(
+            "list_feature_views not implemented - use FeatureRegistry instead"
+        )))
+    }
 
     /// Gets metadata for a specific feature view
     ///
@@ -153,7 +157,12 @@ pub trait StorageConnector: Send + Sync {
     ///
     /// - `FeatureViewNotFound` if the feature view doesn't exist
     /// - `StorageError` if there's an issue accessing storage
-    async fn get_feature_view(&self, name: &str) -> Result<FeatureView>;
+    async fn get_feature_view(&self, name: &str) -> Result<FeatureView> {
+        let _ = name;
+        Err(crate::Error::StorageError(anyhow::anyhow!(
+            "get_feature_view not implemented - use FeatureRegistry instead"
+        )))
+    }
 }
 
 // Note: We don't provide a default implementation because each storage backend
@@ -177,10 +186,11 @@ mod tests {
             _as_of: Option<DateTime<Utc>>,
         ) -> Result<Vec<FeatureRow>> {
             // Return mock data
+            let timestamp = Utc::now();
             Ok(entity_keys
                 .into_iter()
                 .map(|key| {
-                    FeatureRow::new(vec![key])
+                    FeatureRow::new(vec![key], timestamp)
                         .with_feature("test_feature", FeatureValue::Int(42))
                 })
                 .collect())
@@ -210,9 +220,12 @@ mod tests {
         let entities = vec![EntityKey::new("user_id", "123")];
         let result = connector.read_features("test", entities, None).await;
         assert!(result.is_ok());
-        
+
         let rows = result.unwrap();
         assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].features.get("test_feature"), Some(&FeatureValue::Int(42)));
+        assert_eq!(
+            rows[0].features.get("test_feature"),
+            Some(&FeatureValue::Int(42))
+        );
     }
 }

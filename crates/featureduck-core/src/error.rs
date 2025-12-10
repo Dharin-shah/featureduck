@@ -29,55 +29,81 @@ pub enum Error {
     /// This happens when trying to query a feature view that hasn't been registered.
     #[error("Feature view '{0}' not found")]
     FeatureViewNotFound(String),
-    
+
     /// Entity column is missing from the query
     ///
     /// Feature views require specific entity columns. This error occurs when
     /// a required entity column is not provided in the query.
     #[error("Entity column '{0}' is required but was not provided")]
     MissingEntityColumn(String),
-    
+
     /// Feature column is missing or invalid
     #[error("Feature column '{0}' not found in feature view '{1}'")]
     FeatureColumnNotFound(String, String),
-    
+
     /// Storage backend error (e.g., Delta Lake, S3 access)
     ///
     /// This is a catch-all for errors from the underlying storage layer.
     /// We wrap the original error to preserve context.
     #[error("Storage error: {0}")]
     StorageError(#[from] anyhow::Error),
-    
+
+    /// Concurrent modification detected (optimistic locking failure)
+    ///
+    /// Multiple processes tried to update the same feature view simultaneously.
+    /// Retry the materialization to resolve this conflict.
+    #[error("Concurrent modification: {0}")]
+    ConcurrentModification(String),
+
     /// Database query error (DuckDB)
     ///
     /// Errors from DuckDB query execution.
     #[error("Database error: {0}")]
     DatabaseError(String),
-    
+
     /// Serialization/deserialization error
     ///
     /// Occurs when converting between formats (JSON, Arrow, etc.)
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
-    
+
     /// Invalid configuration
     ///
     /// Configuration file or environment variable issues.
     #[error("Configuration error: {0}")]
     ConfigError(String),
-    
+
     /// Invalid input from user
     ///
     /// Used for validation errors (e.g., empty entity list, invalid timestamp)
     #[error("Invalid input: {0}")]
     InvalidInput(String),
-    
+
     /// Point-in-time query not supported
     ///
     /// Some feature views don't have timestamp columns and can't do time-travel.
     #[error("Point-in-time queries not supported for feature view '{0}' (no timestamp column)")]
     PointInTimeNotSupported(String),
-    
+
+    /// Feature not implemented yet
+    ///
+    /// Used for planned features that aren't implemented yet (e.g., MinIO backend).
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
+
+    /// Schema validation error
+    ///
+    /// Occurs when features being written don't match the registered schema.
+    /// This prevents writing features that haven't been registered or have incorrect entities.
+    #[error("Schema validation error: {0}")]
+    SchemaValidation(String),
+
+    /// Resource not found
+    ///
+    /// Used when a requested resource (file, object, etc.) doesn't exist.
+    #[error("Not found: {0}")]
+    NotFound(String),
+
     /// Internal error - this should rarely happen
     ///
     /// Used for unexpected errors that indicate a bug in our code.
@@ -94,20 +120,25 @@ impl Error {
     pub fn database<E: std::error::Error>(err: E) -> Self {
         Self::DatabaseError(err.to_string())
     }
-    
+
     /// Creates a ConfigError from a string
     pub fn config(msg: impl Into<String>) -> Self {
         Self::ConfigError(msg.into())
     }
-    
+
     /// Creates an InvalidInput error from a string
     pub fn invalid_input(msg: impl Into<String>) -> Self {
         Self::InvalidInput(msg.into())
     }
-    
+
     /// Creates an InternalError from a string
     pub fn internal(msg: impl Into<String>) -> Self {
         Self::InternalError(msg.into())
+    }
+
+    /// Creates a SchemaValidation error from a string
+    pub fn schema_validation(msg: impl Into<String>) -> Self {
+        Self::SchemaValidation(msg.into())
     }
 }
 
@@ -125,7 +156,7 @@ mod tests {
     fn test_error_helpers() {
         let err = Error::config("Missing required field");
         assert!(matches!(err, Error::ConfigError(_)));
-        
+
         let err = Error::invalid_input("Empty entity list");
         assert!(matches!(err, Error::InvalidInput(_)));
     }

@@ -22,13 +22,21 @@ repository.workspace = true
 name = "featureduck"
 path = "src/main.rs"
 
+# Library for integration tests
+[lib]
+name = "featureduck_server"
+path = "src/lib.rs"
+
 [dependencies]
 # Internal dependencies
 featureduck-core = { path = "../featureduck-core" }
+featureduck-registry = { path = "../featureduck-registry" }
+featureduck-delta = { path = "../featureduck-delta" }
+featureduck-online = { path = "../featureduck-online", optional = true }
 
 # Web framework
 axum = { workspace = true }
-tower = { workspace = true }
+tower = { workspace = true, features = ["util"] }
 tower-http = { workspace = true }
 
 # Async runtime
@@ -49,18 +57,37 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+# Metrics
+prometheus = "0.13"
+lazy_static = "1.4"
+
 # Time
 chrono = { workspace = true }
 
-# Configuration
-config = { workspace = true }
+# Configuration parsing
 serde_yaml = "0.9"
 
 # CLI argument parsing
 clap = { version = "4.4", features = ["derive"] }
 
+# Authentication & Rate Limiting (P0)
+governor = "0.6"
+http = "1.0"
+
+# Request tracing (unique request IDs)
+uuid = { version = "1.4", features = ["v4"] }
+
+[features]
+default = []
+# Enable online store support (Redis/PostgreSQL for low-latency serving)
+online = ["featureduck-online"]
+# Enable Redis online store
+redis = ["online", "featureduck-online/redis"]
+# Enable PostgreSQL online store
+postgres = ["online", "featureduck-online/postgres"]
+# Enable all online stores
+online-all = ["redis", "postgres"]
+
 [dev-dependencies]
 # Testing
-tokio-test = { workspace = true }
-# HTTP client for testing
-reqwest = "0.11"
+tempfile = { workspace = true }

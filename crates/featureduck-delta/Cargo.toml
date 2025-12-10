@@ -16,20 +16,61 @@ repository.workspace = true
 [dependencies]
 # Internal dependencies
 featureduck-core = { path = "../featureduck-core" }
+featureduck-registry = { path = "../featureduck-registry" }
 
-# Delta Lake (Rust native) - will be enabled in Milestone 1
-# deltalake = { workspace = true }
-# object_store = { workspace = true }
+# Delta Lake (Rust native)
+deltalake = { workspace = true }
+
+# DuckDB for optimized Parquet queries
+duckdb = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }
+async-trait = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Logging and metrics
+tracing = { workspace = true }
+metrics = { workspace = true }
+
 # Time
 chrono = { workspace = true }
 
-# For async trait implementations
-async-trait = "0.1"
+# URL parsing (for deltalake 0.29 API)
+url = "2.5"
+
+# Arrow for data interchange
+arrow = { workspace = true }
+arrow-schema = { workspace = true }
+parquet = { workspace = true }
+
+# Parallel processing
+rayon = "1.10"
+
+# System info (CPU and memory detection)
+num_cpus = "1.16"
+sysinfo = "0.30"
+
+# Connection pooling for concurrent operations (synchronous)
+r2d2 = "0.8"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+criterion = { workspace = true }
+walkdir = "2.5"
+
+[[bench]]
+name = "simple_bench"
+harness = false
+
+[[bench]]
+name = "point_in_time_query"
+harness = false
+

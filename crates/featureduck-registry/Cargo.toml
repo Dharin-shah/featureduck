@@ -1,0 +1,48 @@
+[package]
+name = "featureduck-registry"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Core utilities
+featureduck-core = { path = "../featureduck-core" }
+
+# Async runtime
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# Database - SQLite (embedded) or PostgreSQL (production scale)
+rusqlite = { version = "0.31", features = ["bundled"] }
+deadpool-postgres = { version = "0.12", optional = true }
+tokio-postgres = { version = "0.7", optional = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+clap = { version = "4.4", features = ["derive"] }
+
+[features]
+default = ["sqlite"]
+sqlite = []
+postgres = ["deadpool-postgres", "tokio-postgres"]
+
+[dev-dependencies]
+tempfile = { workspace = true }
+sysinfo = "0.30"
+
+[[bin]]
+name = "featureduck-registry"
+path = "src/bin/main.rs"

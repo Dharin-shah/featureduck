@@ -36,9 +36,15 @@
 //! 4. Repeat for write, list, etc.
 
 // Re-export key types that users of this crate will need
-pub use connector::DeltaStorageConnector;
+pub use circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitOpenError, CircuitState};
+pub use connector::{DeltaStorageConnector, DuckDBEngineConfig};
+pub use write_optimized::{CompressionCodec, WriteConfig};
 
 // Module declarations
+pub mod circuit_breaker; // Circuit breaker for resilience (P0-8)
 mod connector;
+pub mod observability;
+pub mod pool; // DuckDB connection pooling for concurrent operations
+mod write_optimized;
 
 // This will be implemented in Milestone 1

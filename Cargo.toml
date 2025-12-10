@@ -13,6 +13,10 @@ members = [
     "crates/featureduck-core",
     "crates/featureduck-server",
     "crates/featureduck-delta",
+    "crates/featureduck-py",
+    "crates/featureduck-registry",
+    "crates/featureduck-cli",
+    "crates/featureduck-online",
 ]
 
 # Enforce consistent dependency versions across all workspace members
@@ -32,23 +36,29 @@ repository = "https://github.com/featureduck/featureduck"
 [workspace.dependencies]
 # Async runtime - powers all async operations
 tokio = { version = "1.35", features = ["full"] }
+async-trait = "0.1"
 
 # Web framework - handles HTTP requests
 axum = "0.7"
 tower = "0.4"
-tower-http = { version = "0.5", features = ["trace", "cors"] }
+tower-http = { version = "0.5", features = ["trace", "cors", "timeout", "limit"] }
 
-# Database - core query engine
-duckdb = { version = "0.10", features = ["bundled"] }
+# Database - DuckDB (vendored/bundled for reliable single-binary builds)
+# Note: Bundling increases first build time and binary size (~+20MB),
+# but removes system lib dependency and fixes linker issues.
+duckdb = { version = "1.4", features = ["bundled"] }
 
-# Lakehouse formats (will be fully enabled in Milestone 1 with proper testing)
-# deltalake = { version = "0.17", features = ["s3", "gcs"] }
-# object_store = "0.9"
+# Lakehouse formats - upgraded for DuckDB 1.4 / Arrow 51+ compatibility
+# Note: datafusion feature required for DeltaOps::write() API
+# Unfortunately cannot be removed without rewriting to lower-level APIs
+deltalake = { version = "0.29", default-features = false, features = ["datafusion", "native-tls"] }
+object_store = "0.11"
 
-# Pin arrow and chrono to avoid conflicts
-arrow = "=50.0.0"
-arrow-schema = "=50.0.0"
-chrono = { version = "=0.4.31", features = ["serde"] }
+# Arrow and chrono - pinned for deltalake 0.29 compatibility
+# NOTE: deltalake 0.29 uses arrow 56.x, so we must match exactly
+arrow = "56"
+arrow-schema = "56"
+chrono = { version = ">=0.4.31", features = ["serde"] }
 
 # Serialization - JSON for API requests/responses
 serde = { version = "1.0", features = ["derive"] }
@@ -62,12 +72,21 @@ thiserror = "1.0"   # Library-level errors
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
+# Metrics - Prometheus-compatible metrics
+metrics = "0.21"
+metrics-exporter-prometheus = "0.13"
+
 
 # Configuration
 config = "0.14"
 
 # Testing
 tokio-test = "0.4"
+tempfile = "3.8"
+
+# Benchmarking
+criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+parquet = "56"
 
 # Profile configurations for different build scenarios
 [profile.dev]
@@ -76,14 +95,51 @@ opt-level = 0
 debug = true
 
 [profile.release]
-# Maximum performance for production builds
-opt-level = 3           # Maximum optimization
-lto = true              # Link-time optimization (slower build, faster binary)
-codegen-units = 1       # Better optimization at cost of compile time
+# ============================================================================
+# MAXIMUM PERFORMANCE - Rust at its best!
+# ============================================================================
+# These settings extract every bit of performance from the CPU.
+# Build time: ~5-10 minutes | Binary size: ~30-50MB | Runtime: BLAZING FAST
+# ============================================================================
+opt-level = 3           # Maximum optimization level
+lto = "fat"             # Full cross-crate LTO (best optimization, slowest build)
+codegen-units = 1       # Single codegen unit (best optimization)
 strip = true            # Remove debug symbols (smaller binary)
-panic = "abort"         # Smaller binary, faster panic handling
+panic = "abort"         # No unwinding (smaller, faster)
+overflow-checks = false # Disable integer overflow checks (PROD ONLY!)
+debug-assertions = false # Disable debug assertions
+
+# Target CPU features for your specific machine (Apple M-series)
+# Enable NEON SIMD, AES crypto acceleration, etc.
+[profile.release.build-override]
+opt-level = 3
+
+# ============================================================================
+# PRODUCTION-OPTIMIZED - Balanced for deployment
+# ============================================================================
+# Use: CARGO_PROFILE=production cargo build --profile production
+[profile.production]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+overflow-checks = false
 
 [profile.bench]
-# Benchmark profile - similar to release but with debug info
+# Benchmark profile - optimized for faster compilation while maintaining good performance
 inherits = "release"
-debug = true
+lto = "thin"           # Thin LTO (faster compile, ~95% of full LTO performance)
+codegen-units = 4      # Some parallelism for faster builds
+debug = true           # Keep debug info for profiling
+
+# ============================================================================
+# RAPID RELEASE - Fast build, good performance
+# ============================================================================
+# Use: cargo build --profile rapid
+[profile.rapid]
+inherits = "release"
+lto = "thin"           # Thin LTO (5x faster than fat)
+codegen-units = 8      # Parallel codegen
+strip = true
+panic = "abort"
