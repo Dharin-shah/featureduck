@@ -27,19 +27,25 @@ pip install -e python/
 ### Decorator API
 
 ```python
-from featureduck import feature_view, Entity, DeltaSource
-from featureduck import col, count, sum_, days_ago
+from featureduck import FeatureDefinition, Entity, DataSource
+from sqlframe.duckdb import functions as F
 
 user = Entity(name="user", join_keys=["user_id"])
-events = DeltaSource(name="events", path="s3://bucket/events")
+events = DataSource(name="events", source_type="delta", path="s3://bucket/events")
 
-@feature_view(name="user_features", source=events, entities=[user])
-def compute(df):
+@FeatureDefinition(name="user_features", entities=[user], source=events, ttl_days=7)
+def user_purchases(df):
     return (
-        df.filter(col("timestamp") >= days_ago(7))
-          .group_by("user_id")
-          .agg(count().alias("purchases_7d"), sum_("amount").alias("total_spent"))
+        df.filter(F.col("event_type") == "purchase")
+          .groupBy("user_id")
+          .agg(
+              F.count("*").alias("purchase_count"),
+              F.sum("amount").alias("total_spent")
+          )
     )
+
+# Register and materialize
+user_purchases.apply()
 ```
 
 ### SQLFrame API
@@ -51,6 +57,23 @@ view = FeatureView(name="user_features", entities=["user_id"], engine="duckdb")
 df = view.read_source({"type": "parquet", "path": "s3://bucket/events"})
 features = df.groupBy("user_id").agg(F.count("*").alias("event_count"))
 view.materialize(features, output_path="s3://bucket/features")
+```
+
+### Validation
+
+```python
+from featureduck.validation import FeatureView, assert_type, assert_range, reject_pii
+
+@FeatureView(name="user_features", entities=["user_id"])
+@assert_type("age", int)
+@assert_range("age", min=0, max=150)
+@reject_pii(["ssn", "credit_card"])
+class UserFeatures:
+    pass
+
+# Validate a feature row
+schema = UserFeatures._feature_view_schema
+is_valid, error = schema.validate({"entities": [{"name": "user_id", "value": "123"}], "features": {"age": 25}})
 ```
 
 ## Architecture
@@ -72,7 +95,7 @@ python/
 ## Tests
 
 ```bash
-# All lib tests (245 passing)
+# All lib tests
 cargo test --workspace --lib --quiet
 
 # Stress tests
